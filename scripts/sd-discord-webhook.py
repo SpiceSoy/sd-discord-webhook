@@ -31,6 +31,7 @@ sd_locale_dict = {
         "section_name": "디스코드 웹훅",
         "webhook_enable_desc": "디스코드 웹훅 적용 여부",
         "webhook_url_desc": "웹훅 키 URL",
+        "webhook_trigger_only_grid": "그리드 이미지인 경우에만 웹훅",
         "webhook_image_url_desc": "이미지 링크 시작 주소",
         "webhook_image_embed_desc": "이미지 임베드 포함 여부",
         "webhook_image_embed_color_desc": "임베드 컬러",
@@ -54,6 +55,7 @@ sd_locale_dict = {
         "section_name": "Discord Webhook",
         "webhook_enable_desc": "Enable discord webhook",
         "webhook_url_desc": "Webhook token URL",
+        "webhook_trigger_only_grid": "Only push in grid image",
         "webhook_image_url_desc": "Image URL start link address",
         "webhook_image_embed_desc": "Image is contained by embed",
         "webhook_image_embed_color_desc": "Embed point color",
@@ -281,6 +283,16 @@ def on_ui_settings():
     )
 
     shared.opts.add_option(
+        'discord_webhook_trigger_only_grid',
+        shared.OptionInfo(
+            False,
+            loc.get("webhook_trigger_only_grid"),
+            gr.Checkbox,
+            {"interactive": True},
+            section=section)
+    )
+
+    shared.opts.add_option(
         'discord_webhook_image_embed',
         shared.OptionInfo(
             True,
@@ -376,7 +388,10 @@ def image_saved(param: ImageSaveParams):
     if not shared.opts.discord_webhook_enable:
         return
 
-    print(f"image_saved : id : {id(param.p)}")
+    print(param.filename[:param.filename.rindex("\\")].endswith("-grids"))
+
+    if shared.opts.discord_webhook_trigger_only_grid and not param.filename[:param.filename.rindex("\\")].endswith("-grids"):
+        return
 
     loc = Locale(shared.opts.discord_webhook_locale_target)
 
