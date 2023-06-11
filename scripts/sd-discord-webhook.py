@@ -383,6 +383,10 @@ def on_ui_settings():
     )
 
 
+def slice_field(in_str):
+    return in_str[0:max(len(in_str), 1000)]
+
+
 # https://pypi.org/project/discord-webhook/
 def image_saved(param: ImageSaveParams):
     if not shared.opts.discord_webhook_enable:
@@ -418,14 +422,18 @@ def image_saved(param: ImageSaveParams):
     embed.add_embed_field(loc.get("embed_Image_link_title"), f"[{loc.get('embed_Image_link')}]({link_url})", True)
     embed.add_embed_field(loc.get("embed_resolution_title"), f"({param.image.size[0]}x{param.image.size[1]})", True)
 
+    str_prompt = params[0]
+    str_neg_prompt = params[1][len("Negative prompt:"):]
+    str_etc = params[2]
+
     if shared.opts.discord_webhook_show_prompt_desc:
-        embed.add_embed_field(loc.get("embed_prompt_title"), params[0], False)
+        embed.add_embed_field(loc.get("embed_prompt_title"), slice_field(str_prompt), False)
 
     if shared.opts.discord_webhook_show_neg_prompt_desc:
-        embed.add_embed_field(loc.get("embed_neg_prompt_title"), params[1][len("Negative prompt:"):], False)
+        embed.add_embed_field(loc.get("embed_neg_prompt_title"), slice_field(str_neg_prompt), False)
 
     if shared.opts.discord_webhook_show_etc:
-        embed.add_embed_field(loc.get("embed_etc_title"), params[2], False)
+        embed.add_embed_field(loc.get("embed_etc_title"), slice_field(str_etc), False)
 
     if shared.opts.discord_webhook_image_embed:
         embed.set_image(url='attachment://output.png')
