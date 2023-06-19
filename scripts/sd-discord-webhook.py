@@ -35,6 +35,7 @@ sd_locale_dict = {
         "webhook_image_url_desc": "이미지 링크 시작 주소",
         "webhook_image_embed_desc": "이미지 임베드 포함 여부",
         "webhook_image_embed_color_desc": "임베드 컬러",
+        "webhook_show_used_model": "사용 모델 출력 여부",
         "webhook_show_prompt_desc": "긍정 프롬프트 출력 여부",
         "webhook_show_neg_prompt_desc": "부정 프롬프트 출력 여부",
         "webhook_show_etc_desc": "기타 정보 표시 여부",
@@ -45,6 +46,7 @@ sd_locale_dict = {
         "embed_Image_link_title": "이미지",
         "embed_Image_link": "보기",
         "embed_resolution_title": "해상도",
+        "embed_model_name": "사용 모델",
         "embed_prompt_title": "프롬프트",
         "embed_neg_prompt_title": "부정 프롬프트",
         "embed_etc_title": "기타 정보",
@@ -59,6 +61,7 @@ sd_locale_dict = {
         "webhook_image_url_desc": "Image URL start link address",
         "webhook_image_embed_desc": "Image is contained by embed",
         "webhook_image_embed_color_desc": "Embed point color",
+        "webhook_show_used_model": "Show Used Model",
         "webhook_show_prompt_desc": "Show prompt",
         "webhook_show_neg_prompt_desc": "Shot negative prompt",
         "webhook_show_etc_desc": "Show ETC",
@@ -69,6 +72,7 @@ sd_locale_dict = {
         "embed_Image_link_title": "Image",
         "embed_Image_link": "Go",
         "embed_resolution_title": "Resolution",
+        "embed_model_name": "Used Model",
         "embed_prompt_title": "Prompt",
         "embed_neg_prompt_title": "Negative Prompt",
         "embed_etc_title": "ETC",
@@ -341,6 +345,16 @@ def on_ui_settings():
             {"interactive": True},
             section=section)
     )
+    shared.opts.add_option(
+        'discord_webhook_show_used_model',
+        shared.OptionInfo(
+            True,
+            loc.get("webhook_show_used_model"),
+            gr.Checkbox,
+            {"interactive": True},
+            section=section)
+    )
+
 
     shared.opts.add_option(
         'discord_webhook_show_prompt_desc',
@@ -387,6 +401,20 @@ def slice_field(in_str):
     return in_str[0:max(len(in_str), 1000)]
 
 
+class PramParser:
+    def __init__(self, param: str):
+        self.param = param
+        token_negative = "Negative prompt:"
+        token_steps = "Steps:"
+
+        negative_start = self.param.rfind(token_negative)
+        steps_start = self.param.rfind(token_steps)
+
+        self.prompt = slice_field(self.param[0:negative_start].strip())
+        self.negative_prompt = slice_field(self.param[negative_start + len(token_negative):steps_start].strip())
+        self.etc_params = slice_field(self.param[steps_start:].strip())
+
+
 # https://pypi.org/project/discord-webhook/
 def image_saved(param: ImageSaveParams):
     if not shared.opts.discord_webhook_enable:
@@ -416,24 +444,28 @@ def image_saved(param: ImageSaveParams):
     rel_path = os.path.relpath(param.filename, os.getcwd())
     link_url = f"{shared.opts.discord_webhook_image_url}discord_webhook/img?path={parse.quote(rel_path)}"
 
-    params = param.pnginfo['parameters'].split("\n")
+    params = PramParser(param.pnginfo['parameters'])
 
     embed = DiscordEmbed(title=loc.get("embed_title"), color=shared.opts.discord_webhook_embed_color[1:])
     embed.add_embed_field(loc.get("embed_Image_link_title"), f"[{loc.get('embed_Image_link')}]({link_url})", True)
     embed.add_embed_field(loc.get("embed_resolution_title"), f"({param.image.size[0]}x{param.image.size[1]})", True)
 
-    str_prompt = params[0]
-    str_neg_prompt = params[1][len("Negative prompt:"):]
-    str_etc = params[2]
+    str_prompt = params.prompt
+    str_neg_prompt = params.negative_prompt
+    str_etc = params.etc_params
+    str_checkpoint_name = shared.sd_model.sd_checkpoint_info.model_name
+
+    if shared.opts.discord_webhook_show_used_model:
+        embed.add_embed_field(loc.get("embed_model_name"), str_checkpoint_name, False)
 
     if shared.opts.discord_webhook_show_prompt_desc:
-        embed.add_embed_field(loc.get("embed_prompt_title"), slice_field(str_prompt), False)
+        embed.add_embed_field(loc.get("embed_prompt_title"), str_prompt, False)
 
     if shared.opts.discord_webhook_show_neg_prompt_desc:
-        embed.add_embed_field(loc.get("embed_neg_prompt_title"), slice_field(str_neg_prompt), False)
+        embed.add_embed_field(loc.get("embed_neg_prompt_title"), str_neg_prompt, False)
 
     if shared.opts.discord_webhook_show_etc:
-        embed.add_embed_field(loc.get("embed_etc_title"), slice_field(str_etc), False)
+        embed.add_embed_field(loc.get("embed_etc_title"), str_etc, False)
 
     if shared.opts.discord_webhook_image_embed:
         embed.set_image(url='attachment://output.png')
