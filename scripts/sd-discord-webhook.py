@@ -36,6 +36,7 @@ sd_locale_dict = {
         "webhook_image_embed_desc": "이미지 임베드 포함 여부",
         "webhook_image_embed_color_desc": "임베드 컬러",
         "webhook_show_used_model": "사용 모델 출력 여부",
+        "webhook_show_used_sampler": "사용 샘플러 출력 여부",
         "webhook_show_prompt_desc": "긍정 프롬프트 출력 여부",
         "webhook_show_neg_prompt_desc": "부정 프롬프트 출력 여부",
         "webhook_show_etc_desc": "기타 정보 표시 여부",
@@ -45,8 +46,10 @@ sd_locale_dict = {
         "embed_title": "이미지 생성 완료",
         "embed_Image_link_title": "이미지",
         "embed_Image_link": "보기",
-        "embed_resolution_title": "해상도",
+        "embed_resolution_title": "전체 해상도",
+        "embed_src_resolution_title": "원본 해상도",
         "embed_model_name": "사용 모델",
+        "embed_sampler_name": "사용 샘플러",
         "embed_prompt_title": "프롬프트",
         "embed_neg_prompt_title": "부정 프롬프트",
         "embed_etc_title": "기타 정보",
@@ -62,6 +65,7 @@ sd_locale_dict = {
         "webhook_image_embed_desc": "Image is contained by embed",
         "webhook_image_embed_color_desc": "Embed point color",
         "webhook_show_used_model": "Show Used Model",
+        "webhook_show_used_sampler": "Show Used Sampler",
         "webhook_show_prompt_desc": "Show prompt",
         "webhook_show_neg_prompt_desc": "Shot negative prompt",
         "webhook_show_etc_desc": "Show ETC",
@@ -72,7 +76,9 @@ sd_locale_dict = {
         "embed_Image_link_title": "Image",
         "embed_Image_link": "Go",
         "embed_resolution_title": "Resolution",
+        "embed_src_resolution_title": "Source Resolution",
         "embed_model_name": "Used Model",
+        "embed_sampler_name": "Used Sampler",
         "embed_prompt_title": "Prompt",
         "embed_neg_prompt_title": "Negative Prompt",
         "embed_etc_title": "ETC",
@@ -345,6 +351,7 @@ def on_ui_settings():
             {"interactive": True},
             section=section)
     )
+
     shared.opts.add_option(
         'discord_webhook_show_used_model',
         shared.OptionInfo(
@@ -355,6 +362,15 @@ def on_ui_settings():
             section=section)
     )
 
+    shared.opts.add_option(
+        'discord_webhook_show_used_sampler',
+        shared.OptionInfo(
+            True,
+            loc.get("webhook_show_used_sampler"),
+            gr.Checkbox,
+            {"interactive": True},
+            section=section)
+    )
 
     shared.opts.add_option(
         'discord_webhook_show_prompt_desc',
@@ -414,6 +430,14 @@ class PramParser:
         self.negative_prompt = slice_field(self.param[negative_start + len(token_negative):steps_start].strip())
         self.etc_params = slice_field(self.param[steps_start:].strip())
 
+        sample_start = self.etc_params.find("Sampler:") + len("Sampler:")
+        sample_end = self.etc_params.find(",", sample_start)
+        self.sampler = self.etc_params[sample_start:sample_end].strip()
+
+        size_start = self.etc_params.find("Size:") + len("Size:")
+        size_end = self.etc_params.find(",", size_start)
+        self.source_size = self.etc_params[size_start:size_end].strip()
+
 
 # https://pypi.org/project/discord-webhook/
 def image_saved(param: ImageSaveParams):
@@ -446,17 +470,23 @@ def image_saved(param: ImageSaveParams):
 
     params = PramParser(param.pnginfo['parameters'])
 
-    embed = DiscordEmbed(title=loc.get("embed_title"), color=shared.opts.discord_webhook_embed_color[1:])
-    embed.add_embed_field(loc.get("embed_Image_link_title"), f"[{loc.get('embed_Image_link')}]({link_url})", True)
-    embed.add_embed_field(loc.get("embed_resolution_title"), f"({param.image.size[0]}x{param.image.size[1]})", True)
-
     str_prompt = params.prompt
     str_neg_prompt = params.negative_prompt
     str_etc = params.etc_params
-    str_checkpoint_name = shared.sd_model.sd_checkpoint_info.model_name
+    str_checkpoint_name = shared.sd_model.sd_checkpoint_info.model_name.strip()
+    str_sampler_name = params.sampler.strip()
+    str_source_size = params.source_size.strip()
+
+    embed = DiscordEmbed(title=loc.get("embed_title"), color=shared.opts.discord_webhook_embed_color[1:])
+    embed.add_embed_field(loc.get("embed_Image_link_title"), f"[{loc.get('embed_Image_link')}]({link_url})", True)
+    embed.add_embed_field(loc.get("embed_resolution_title"), f"({param.image.size[0]}x{param.image.size[1]})", True)
+    embed.add_embed_field(loc.get("embed_src_resolution_title"), f"({str_source_size})", True)
 
     if shared.opts.discord_webhook_show_used_model:
-        embed.add_embed_field(loc.get("embed_model_name"), str_checkpoint_name, False)
+        embed.add_embed_field(loc.get("embed_model_name"), str_checkpoint_name, True)
+
+    if shared.opts.discord_webhook_show_used_sampler:
+        embed.add_embed_field(loc.get("embed_sampler_name"), str_sampler_name, True)
 
     if shared.opts.discord_webhook_show_prompt_desc:
         embed.add_embed_field(loc.get("embed_prompt_title"), str_prompt, False)
