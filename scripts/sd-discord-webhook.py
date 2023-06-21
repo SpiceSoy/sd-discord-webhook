@@ -408,7 +408,7 @@ class PramParser:
         token_steps = "Steps:"
 
         negative_start = self.param.rfind(token_negative)
-        steps_start = self.param.rfind(token_steps)
+        steps_start = self.param.find(token_steps)
 
         self.prompt = slice_field(self.param[0:negative_start].strip())
         self.negative_prompt = slice_field(self.param[negative_start + len(token_negative):steps_start].strip())
