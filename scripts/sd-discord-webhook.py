@@ -149,7 +149,7 @@ def check_safety(x_image):
 
 def censor_batch(x):
     x = copy.deepcopy(x)
-    x_samples_ddim_numpy = torch.stack([e.permute(1, 2, 0).numpy() for e in x])
+    x_samples_ddim_numpy = torch.stack([e.permute(1, 2, 0) for e in x]).numpy()
     has_nsfw_concept = check_safety(x_samples_ddim_numpy)
     return has_nsfw_concept
 
